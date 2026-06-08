@@ -2,7 +2,7 @@ const express = require("express");
 const axios = require("axios");
 const fs = require("fs");
 
-const TOKEN = "توکن_ربات";
+const TOKEN = "1903477716:12tRWr3sE_lYh9KrX99xN54vkmzabfb-Kp4";
 const API = `https://tapi.bale.ai/bot${TOKEN}`;
 
 const app = express();

@@ -1,88 +1,311 @@
 const express = require("express");
 const axios = require("axios");
 
-const {
-    TOKEN,
-    WORK_COOLDOWN,
-    DAILY_COOLDOWN
-} = require("./config");
+const app = express();
 
-const {
-    getUser,
-    updateUser,
-    getTopUsers
-} = require("./database");
+app.use(express.json());
 
-async function sendKeyboard(
-    chatId,
-    text,
-    keyboard
-) {
+// تنظیمات
+const TOKEN = process.env.TOKEN;
+const BIN_ID = process.env.BIN_ID;
+const MASTER_KEY = process.env.MASTER_KEY;
 
-    await axios.post(
-        `${API}/sendMessage`,
+const API = `https://tapi.bale.ai/bot${TOKEN}`;
+
+// =======================
+// JSONBIN
+// =======================
+
+async function loadDB() {
+
+    const res = await axios.get(
+        `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,
         {
-            chat_id: chatId,
-            text,
-
-            reply_markup: {
-                inline_keyboard: keyboard
+            headers: {
+                "X-Master-Key": MASTER_KEY
             }
         }
     );
 
+    return res.data.record;
 }
-if (
-    text === "/start" ||
-    text === "/شروع"
+
+async function saveDB(db) {
+
+    await axios.put(
+        `https://api.jsonbin.io/v3/b/${BIN_ID}`,
+        db,
+        {
+            headers: {
+                "X-Master-Key": MASTER_KEY,
+                "Content-Type": "application/json"
+            }
+        }
+    );
+}
+
+async function getUser(userId) {
+
+    const db = await loadDB();
+
+    if (!db.users[userId]) {
+
+        db.users[userId] = {
+
+            money: 1000,
+            level: 1,
+            xp: 0,
+
+            bank: 0,
+            items: [],
+
+            lastWork: 0
+
+        };
+
+        await saveDB(db);
+    }
+
+    return db.users[userId];
+}
+
+async function updateUser(userId, userData) {
+
+    const db = await loadDB();
+
+    db.users[userId] = userData;
+
+    await saveDB(db);
+}
+
+// =======================
+// ارسال پیام
+// =======================
+
+async function sendMessage(
+    chatId,
+    text
 ) {
 
-    return sendKeyboard(
+    try {
 
-        chatId,
+        await axios.post(
+            `${API}/sendMessage`,
+            {
+                chat_id: chatId,
+                text
+            }
+        );
 
-        "🎮 به ربات اقتصادی خوش آمدی",
+    } catch (err) {
 
-        [
+        console.log(
+            "SEND ERROR:",
+            err.message
+        );
 
-            [
-                {
-                    text: "👤 پروفایل",
-                    callback_data: "profile"
-                },
-
-                {
-                    text: "💼 کار",
-                    callback_data: "work"
-                }
-            ],
-
-            [
-                {
-                    text: "🎁 روزانه",
-                    callback_data: "daily"
-                },
-
-                {
-                    text: "📈 ترید",
-                    callback_data: "trade"
-                }
-            ],
-
-            [
-                {
-                    text: "🏦 بانک",
-                    callback_data: "bank"
-                },
-
-                {
-                    text: "🛒 فروشگاه",
-                    callback_data: "shop"
-                }
-            ]
-
-        ]
-
-    );
+    }
 
 }
+
+// =======================
+// صفحه اصلی
+// =======================
+
+app.get("/", (req, res) => {
+
+    res.send("BOT ONLINE");
+
+});
+
+// =======================
+// WEBHOOK
+// =======================
+
+app.post(
+    "/webhook",
+    async (req, res) => {
+
+        try {
+
+            const update =
+                req.body;
+
+            if (
+                !update.message
+            ) {
+
+                return res.sendStatus(
+                    200
+                );
+
+            }
+
+            const chatId =
+                update.message.chat.id;
+
+            const userId =
+                update.message.from.id;
+
+            const text =
+                update.message.text || "";
+
+            let user =
+                await getUser(
+                    userId
+                );
+
+            // شروع
+
+            if (
+                text === "/start" ||
+                text === "/شروع"
+            ) {
+
+                await sendMessage(
+
+                    chatId,
+
+`🎮 به ربات اقتصادی خوش آمدی
+
+دستورات:
+
+/پروفایل
+/کار`
+                );
+
+                return res.sendStatus(
+                    200
+                );
+
+            }
+
+            // پروفایل
+
+            if (
+                text === "/پروفایل"
+            ) {
+
+                await sendMessage(
+
+                    chatId,
+
+`👤 پروفایل
+
+💰 پول:
+${user.money}
+
+🏦 بانک:
+${user.bank}
+
+⭐ سطح:
+${user.level}
+
+⚡ XP:
+${user.xp}`
+                );
+
+                return res.sendStatus(
+                    200
+                );
+
+            }
+
+            // کار
+
+            if (
+                text === "/کار"
+            ) {
+
+                const now =
+                    Date.now();
+
+                if (
+                    now -
+                    user.lastWork <
+                    60000
+                ) {
+
+                    await sendMessage(
+
+                        chatId,
+
+                        "⏳ یک دقیقه صبر کن"
+                    );
+
+                    return res.sendStatus(
+                        200
+                    );
+
+                }
+
+                const income =
+                    Math.floor(
+                        Math.random() *
+                        500
+                    ) + 100;
+
+                user.money +=
+                    income;
+
+                user.xp += 10;
+
+                user.lastWork =
+                    now;
+
+                await updateUser(
+                    userId,
+                    user
+                );
+
+                await sendMessage(
+
+                    chatId,
+
+`💼 کار کردی
+
+💵 درآمد:
+${income}
+
+💰 موجودی:
+${user.money}`
+                );
+
+                return res.sendStatus(
+                    200
+                );
+
+            }
+
+            return res.sendStatus(
+                200
+            );
+
+        } catch (err) {
+
+            console.log(err);
+
+            return res.sendStatus(
+                500
+            );
+
+        }
+
+    }
+);
+
+// =======================
+// START
+// =======================
+
+const PORT =
+    process.env.PORT ||
+    3000;
+
+app.listen(PORT, () => {
+
+    console.log(
+        `BOT ONLINE ${PORT}`
+    );
+
+});

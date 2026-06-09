@@ -173,6 +173,26 @@ app.post(
 /پروفایل
 /کار`
                 );
+async function sendKeyboard(
+    chatId,
+    text,
+    keyboard
+) {
+
+    await axios.post(
+        `${API}/sendMessage`,
+        {
+            chat_id: chatId,
+            text,
+
+            reply_markup: {
+                inline_keyboard: keyboard
+            }
+        }
+    );
+
+}
+
 
                 return res.sendStatus(
                     200

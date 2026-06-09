@@ -1,59 +1,84 @@
-const express = require("express");
+module.exports = {
+
+    TOKEN: process.env.TOKEN,
+
+    BIN_ID: process.env.BIN_ID,
+
+    MASTER_KEY: process.env.MASTER_KEY,
+
+    WORK_COOLDOWN: 60000,
+
+    DAILY_COOLDOWN: 86400000
+
+};
 const axios = require("axios");
-const fs = require("fs");
+const {
+    BIN_ID,
+    MASTER_KEY
+} = require("./config");
 
-const TOKEN = "1903477716:12tRWr3sE_lYh9KrX99xN54vkmzabfb-Kp4";
-const API = `https://tapi.bale.ai/bot${TOKEN}`;
+async function loadDB() {
 
-const app = express();
-app.use(express.json());
+    const res = await axios.get(
+        `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,
+        {
+            headers: {
+                "X-Master-Key": MASTER_KEY
+            }
+        }
+    );
 
-const DB_FILE = "database.json";
+    return res.data.record;
 
-function loadDB() {
+}
 
-    if (!fs.existsSync(DB_FILE)) {
+async function saveDB(db) {
 
-        fs.writeFileSync(
-            DB_FILE,
-            JSON.stringify({
-                users: {}
-            }, null, 2)
-        );
-
-    }
-
-    return JSON.parse(
-        fs.readFileSync(DB_FILE)
+    await axios.put(
+        `https://api.jsonbin.io/v3/b/${BIN_ID}`,
+        db,
+        {
+            headers: {
+                "X-Master-Key": MASTER_KEY,
+                "Content-Type": "application/json"
+            }
+        }
     );
 
 }
 
-function saveDB(db) {
+async function getUser(id) {
 
-    fs.writeFileSync(
-        DB_FILE,
-        JSON.stringify(db, null, 2)
-    );
-
-}
-
-function getUser(id) {
-
-    const db = loadDB();
+    const db = await loadDB();
 
     if (!db.users[id]) {
 
         db.users[id] = {
 
             money: 1000,
+            bank: 0,
+            bankType: null,
+
             level: 1,
             xp: 0,
-            lastWork: 0
+
+            pcLevel: 1,
+            traderLevel: 0,
+
+            items: [],
+
+            lastWork: 0,
+            lastDaily: 0,
+
+            spam: {
+                count: 0,
+                lastMsg: 0,
+                muteUntil: 0
+            }
 
         };
 
-        saveDB(db);
+        await saveDB(db);
 
     }
 
@@ -61,25 +86,66 @@ function getUser(id) {
 
 }
 
-function updateUser(id, data) {
+async function updateUser(id, user) {
 
-    const db = loadDB();
+    const db = await loadDB();
 
-    db.users[id] = data;
+    db.users[id] = user;
 
-    saveDB(db);
+    await saveDB(db);
 
 }
 
-async function sendMessage(chatId, text) {
+module.exports = {
+    loadDB,
+    saveDB,
+    getUser,
+    updateUser
+};
+const express = require("express");
+const axios = require("axios");
 
-    await axios.post(
-        `${API}/sendMessage`,
-        {
-            chat_id: chatId,
-            text: text
-        }
-    );
+const {
+    TOKEN,
+    WORK_COOLDOWN,
+    DAILY_COOLDOWN
+} = require("./config");
+
+const {
+    getUser,
+    updateUser
+} = require("./database");
+
+const API =
+`https://tapi.bale.ai/bot${TOKEN}`;
+
+const app = express();
+
+app.use(express.json());
+
+async function sendMessage(
+    chatId,
+    text
+) {
+
+    try {
+
+        await axios.post(
+            `${API}/sendMessage`,
+            {
+                chat_id: chatId,
+                text
+            }
+        );
+
+    } catch (e) {
+
+        console.log(
+            "Send Error",
+            e.message
+        );
+
+    }
 
 }
 
@@ -108,112 +174,231 @@ app.post("/webhook", async (req, res) => {
             update.message.text || "";
 
         let user =
-            getUser(userId);
+            await getUser(userId);
+
+        const now =
+            Date.now();
+
+        // ضد اسپم
+        if (
+            user.spam.muteUntil >
+            now
+        ) {
+
+            return res.sendStatus(200);
+
+        }
 
         if (
-            text === "/start" ||
-            text === "/شروع"
+            now -
+            user.spam.lastMsg <
+            1200
         ) {
 
-            await sendMessage(
-                chatId,
-                "🎮 به ربات اقتصادی خوش آمدی\n\nدستورات:\n/پروفایل\n/کار"
-            );
+            user.spam.count++;
+
+        } else {
+
+            user.spam.count = 0;
 
         }
 
-        else if (
-            text === "/پروفایل"
+        user.spam.lastMsg =
+            now;
+
+        if (
+            user.spam.count >= 6
         ) {
 
-            await sendMessage(
-                chatId,
+            user.spam.muteUntil =
+                now + 60000;
 
-`👤 پروفایل
-
-💰 پول: ${user.money}
-
-⭐ سطح: ${user.level}
-
-⚡ XP: ${user.xp}`
-            );
-
-        }
-
-        else if (
-            text === "/کار"
-        ) {
-
-            const now =
-                Date.now();
-
-            const wait =
-                60000;
-
-            if (
-                now - user.lastWork < wait
-            ) {
-
-                const left =
-                    Math.ceil(
-                        (
-                            wait -
-                            (now - user.lastWork)
-                        ) / 1000
-                    );
-
-                return sendMessage(
-                    chatId,
-                    `⏳ ${left} ثانیه دیگر تلاش کن`
-                );
-
-            }
-
-            const income =
-                Math.floor(
-                    Math.random() * 500
-                ) + 100;
-
-            user.money += income;
-
-            user.xp += 10;
-
-            user.lastWork =
-                now;
-
-            if (
-                user.xp >=
-                user.level * 100
-            ) {
-
-                user.level++;
-
-                user.xp = 0;
-
-            }
-
-            updateUser(
+            await updateUser(
                 userId,
                 user
             );
 
             await sendMessage(
                 chatId,
+                "🚫 1 دقیقه محدود شدی"
+            );
 
-`💼 کار کردی
+            return res.sendStatus(200);
 
-💵 درآمد: ${income}
+        }
 
-💰 موجودی: ${user.money}`
+        // استارت
+        if (
+            text === "/start" ||
+            text === "/شروع"
+        ) {
+
+            return sendMessage(
+                chatId,
+
+`🎮 ربات اقتصادی
+
+/پروفایل
+/کار
+/روزانه
+/ترید`
+            );
+
+        }
+
+        // پروفایل
+        if (
+            text === "/پروفایل"
+        ) {
+
+            return sendMessage(
+                chatId,
+
+`👤 پروفایل
+
+💰 پول: ${user.money}
+
+🏦 بانک: ${user.bank}
+
+⭐ سطح: ${user.level}
+
+📈 تریدر: ${user.traderLevel}
+
+🖥 کامپیوتر: ${user.pcLevel}`
+            );
+
+        }
+
+        // کار
+        if (
+            text === "/کار"
+        ) {
+
+            if (
+                now -
+                user.lastWork <
+                WORK_COOLDOWN
+            ) {
+
+                return sendMessage(
+                    chatId,
+                    "⏳ کمی صبر کن"
+                );
+
+            }
+
+            const income =
+                Math.floor(
+                    Math.random() *
+                    500 *
+                    user.pcLevel
+                ) + 100;
+
+            user.money += income;
+
+            user.lastWork =
+                now;
+
+            user.xp += 10;
+
+            await updateUser(
+                userId,
+                user
+            );
+
+            return sendMessage(
+                chatId,
+
+`💼 درآمد
+
++${income}
+
+💰 ${user.money}`
+            );
+
+        }
+
+        // روزانه
+        if (
+            text === "/روزانه"
+        ) {
+
+            if (
+                now -
+                user.lastDaily <
+                DAILY_COOLDOWN
+            ) {
+
+                return sendMessage(
+                    chatId,
+                    "🎁 قبلا گرفتی"
+                );
+
+            }
+
+            user.money += 5000;
+
+            user.lastDaily =
+                now;
+
+            await updateUser(
+                userId,
+                user
+            );
+
+            return sendMessage(
+                chatId,
+                "🎁 5000 سکه گرفتی"
+            );
+
+        }
+
+        // ترید
+        if (
+            text === "/ترید"
+        ) {
+
+            if (
+                user.traderLevel < 1
+            ) {
+
+                return sendMessage(
+                    chatId,
+                    "❌ تریدر نداری"
+                );
+
+            }
+
+            const profit =
+                Math.floor(
+                    Math.random() *
+                    3000
+                ) - 1000;
+
+            user.money += profit;
+
+            await updateUser(
+                userId,
+                user
+            );
+
+            return sendMessage(
+                chatId,
+
+profit >= 0
+
+? `📈 سود ${profit}`
+
+: `📉 ضرر ${Math.abs(profit)}`
             );
 
         }
 
         res.sendStatus(200);
 
-    } catch (err) {
+    } catch (e) {
 
-        console.log(err);
+        console.log(e);
 
         res.sendStatus(500);
 
@@ -222,12 +407,12 @@ app.post("/webhook", async (req, res) => {
 });
 
 const PORT =
-    process.env.PORT || 3000;
+process.env.PORT || 3000;
 
 app.listen(PORT, () => {
 
     console.log(
-        `Server Running On ${PORT}`
+        "BOT ONLINE"
     );
 
 });

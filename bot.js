@@ -131,6 +131,99 @@ app.post(
             const update =
                 req.body;
 
+if (update.callback_query) {
+
+    const chatId =
+        update.callback_query.message.chat.id;
+
+    const userId =
+        update.callback_query.from.id;
+
+    const data =
+        update.callback_query.data;
+
+    const user =
+        await getUser(userId);
+
+    // پروفایل
+
+    if (data === "profile") {
+
+        await sendMessage(
+
+            chatId,
+
+`👤 پروفایل
+
+💰 پول:
+${user.money}
+
+🏦 بانک:
+${user.bank}
+
+⭐ سطح:
+${user.level}`
+        );
+
+    }
+
+    // بانک
+
+    else if (
+        data === "bank"
+    ) {
+
+        await sendMessage(
+
+            chatId,
+
+`🏦 بانک
+
+موجودی:
+${user.bank}`
+        );
+
+    }
+
+    // فروشگاه
+
+    else if (
+        data === "shop"
+    ) {
+
+        await sendKeyboard(
+
+            chatId,
+
+            "🛒 فروشگاه",
+
+            [
+
+                [
+                    {
+                        text: "👔 کت و شلوار",
+                        callback_data: "buy_suit"
+                    }
+                ],
+
+                [
+                    {
+                        text: "⌚ ساعت",
+                        callback_data: "buy_watch"
+                    }
+                ]
+
+            ]
+
+        );
+
+    }
+
+    return res.sendStatus(200);
+
+}
+
+
             if (
                 !update.message
             ) {

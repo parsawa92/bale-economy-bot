@@ -95,6 +95,23 @@ async function updateUser(id, user) {
     await saveDB(db);
 
 }
+async function getTopUsers() {
+
+    const db =
+        await loadDB();
+
+    return Object
+        .entries(
+            db.users
+        )
+        .sort(
+            (a, b) =>
+            b[1].money -
+            a[1].money
+        )
+        .slice(0, 10);
+
+}
 
 module.exports = {
     loadDB,
@@ -418,6 +435,19 @@ if (text === "/فروشگاه") {
     );
 
 }
+if (text === "/دارایی") {
+
+    return sendMessage(
+        chatId,
+
+user.items.length
+
+? user.items.join("\n")
+
+: "🎒 هیچ دارایی نداری"
+    );
+
+}
 
 `🎮 ربات اقتصادی
 
@@ -576,6 +606,30 @@ profit >= 0
             );
 
         }
+
+if (text === "/لیدربورد") {
+
+    const top =
+        await getTopUsers();
+
+    let msg =
+        "🏆 لیدربورد\n\n";
+
+    top.forEach(
+        (u, i) => {
+
+            msg +=
+            `${i + 1}. 💰 ${u[1].money}\n`;
+
+        }
+    );
+
+    return sendMessage(
+        chatId,
+        msg
+    );
+
+}
 
         res.sendStatus(200);
 

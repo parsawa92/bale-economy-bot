@@ -155,12 +155,57 @@ app.post(
                     userId
                 );
 
-            // شروع
+await sendKeyboard(
 
-            if (
-                text === "/start" ||
-                text === "/شروع"
-            ) {
+    chatId,
+
+    "🎮 پنل اقتصادی",
+
+    [
+
+        [
+            {
+                text: "👤 پروفایل",
+                callback_data: "profile"
+            }
+        ],
+
+        [
+            {
+                text: "💼 کار",
+                callback_data: "work"
+            },
+
+            {
+                text: "🎁 روزانه",
+                callback_data: "daily"
+            }
+        ],
+
+        [
+            {
+                text: "🏦 بانک",
+                callback_data: "bank"
+            },
+
+            {
+                text: "📈 ترید",
+                callback_data: "trade"
+            }
+        ],
+
+        [
+            {
+                text: "🛒 فروشگاه",
+                callback_data: "shop"
+            }
+        ]
+
+    ]
+
+);
+
+return res.sendStatus(200);
 
                 await sendMessage(
 

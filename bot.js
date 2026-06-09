@@ -235,6 +235,189 @@ app.post("/webhook", async (req, res) => {
 
             return sendMessage(
                 chatId,
+if (text === "/خریدتریدر") {
+
+    const price =
+        (user.traderLevel + 1) * 5000;
+
+    if (user.money < price) {
+
+        return sendMessage(
+            chatId,
+            `❌ ${price} سکه لازم داری`
+        );
+
+    }
+
+    user.money -= price;
+
+    user.traderLevel++;
+
+    await updateUser(
+        userId,
+        user
+    );
+
+    return sendMessage(
+        chatId,
+        `📈 تریدر سطح ${user.traderLevel} خریدی`
+    );
+
+}
+
+if (text === "/ارتقا") {
+
+    const price =
+        user.pcLevel * 3000;
+
+    if (user.money < price) {
+
+        return sendMessage(
+            chatId,
+            "❌ پول کافی نداری"
+        );
+
+    }
+
+    user.money -= price;
+
+    user.pcLevel++;
+
+    await updateUser(
+        userId,
+        user
+    );
+
+    return sendMessage(
+        chatId,
+        `🖥 سطح سیستم: ${user.pcLevel}`
+    );
+
+}
+if (text === "/افتتاح ملی") {
+
+    user.bankType = "ملی";
+
+    await updateUser(
+        userId,
+        user
+    );
+
+    return sendMessage(
+        chatId,
+        "🏦 حساب ملی ساخته شد"
+    );
+
+}
+
+if (text.startsWith("/واریز ")) {
+
+    const amount =
+        parseInt(
+            text.split(" ")[1]
+        );
+
+    if (
+        isNaN(amount) ||
+        amount <= 0
+    ) return;
+
+    if (
+        user.money < amount
+    ) {
+
+        return sendMessage(
+            chatId,
+            "❌ پول کافی نداری"
+        );
+
+    }
+
+    user.money -= amount;
+
+    user.bank += amount;
+
+    await updateUser(
+        userId,
+        user
+    );
+
+    return sendMessage(
+        chatId,
+        `🏦 ${amount} واریز شد`
+    );
+
+}
+
+if (text.startsWith("/برداشت ")) {
+
+    const amount =
+        parseInt(
+            text.split(" ")[1]
+        );
+
+    if (
+        user.bank < amount
+    ) {
+
+        return sendMessage(
+            chatId,
+            "❌ موجودی بانک کافی نیست"
+        );
+
+    }
+
+    user.bank -= amount;
+
+    user.money += amount;
+
+    await updateUser(
+        userId,
+        user
+    );
+
+    return sendMessage(
+        chatId,
+        `💵 ${amount} برداشت شد`
+    );
+
+}
+
+if (text === "/سود") {
+
+    const profit =
+        Math.floor(
+            user.bank * 0.03
+        );
+
+    user.bank += profit;
+
+    await updateUser(
+        userId,
+        user
+    );
+
+    return sendMessage(
+        chatId,
+        `💰 سود: ${profit}`
+    );
+
+}
+if (text === "/فروشگاه") {
+
+    return sendMessage(
+        chatId,
+
+`🛒 فروشگاه
+
+👔 کت و شلوار = 5000
+
+⌚ ساعت لوکس = 10000
+
+🚗 ماشین اسپرت = 50000`
+    );
+
+}
 
 `🎮 ربات اقتصادی
 

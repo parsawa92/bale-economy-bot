@@ -187,37 +187,99 @@ ${user.bank}`
 
     // فروشگاه
 
-    else if (
-        data === "shop"
-    ) {
+    else if (data === "buy_suit") {
 
-        await sendKeyboard(
+    const price = 5000;
 
+    if (user.money < price) {
+
+        return sendMessage(
             chatId,
-
-            "🛒 فروشگاه",
-
-            [
-
-                [
-                    {
-                        text: "👔 کت و شلوار",
-                        callback_data: "buy_suit"
-                    }
-                ],
-
-                [
-                    {
-                        text: "⌚ ساعت",
-                        callback_data: "buy_watch"
-                    }
-                ]
-
-            ]
-
+            "❌ پول کافی نداری"
         );
 
     }
+
+    user.money -= price;
+
+    user.items.push(
+        "👔 کت و شلوار"
+    );
+
+    await updateUser(
+        userId,
+        user
+    );
+
+    return sendMessage(
+        chatId,
+        "✅ کت و شلوار خریدی"
+    );
+
+}
+
+else if (data === "buy_watch") {
+
+    const price = 10000;
+
+    if (user.money < price) {
+
+        return sendMessage(
+            chatId,
+            "❌ پول کافی نداری"
+        );
+
+    }
+
+    user.money -= price;
+
+    user.items.push(
+        "⌚ ساعت لوکس"
+    );
+
+    await updateUser(
+        userId,
+        user
+    );
+
+    return sendMessage(
+        chatId,
+        "⌚ ساعت خریدی"
+    );
+
+}
+
+else if (data === "buy_car") {
+
+    const price = 50000;
+
+    if (user.money < price) {
+
+        return sendMessage(
+            chatId,
+            "❌ پول کافی نداری"
+        );
+
+    }
+
+    user.money -= price;
+
+    user.items.push(
+        "🚗 ماشین اسپرت"
+    );
+
+    await updateUser(
+        userId,
+        user
+    );
+
+    return sendMessage(
+        chatId,
+        "🚗 ماشین خریدی"
+    );
+
+}
+
 
     return res.sendStatus(200);
 

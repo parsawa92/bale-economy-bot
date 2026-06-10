@@ -145,6 +145,40 @@ if (update.callback_query) {
     const user =
         await getUser(userId);
 
+
+if (
+    data === "meli"
+) {
+
+    return sendKeyboard(
+
+        chatId,
+
+`🏛 بانک ملی
+
+هزینه افتتاح:
+500 سکه
+
+سود:
+3٪ روزانه`,
+
+        [
+
+            [
+                {
+                    text: "✅ افتتاح حساب",
+                    callback_data: "buy_meli"
+                }
+            ]
+
+        ]
+
+    );
+
+}
+
+
+
     // پروفایل
 
     if (data === "profile") {
@@ -279,6 +313,39 @@ else if (data === "buy_car") {
     );
 
 }
+
+if (
+    text === "بانک"
+) {
+
+    return sendKeyboard(
+
+        chatId,
+
+        "🏦 پنل بانک",
+
+        [
+
+            [
+                {
+                    text: "🏛 بانک ملی",
+                    callback_data: "meli"
+                }
+            ],
+
+            [
+                {
+                    text: "🏛 بانک سپه",
+                    callback_data: "sepah"
+                }
+            ]
+
+        ]
+
+    );
+
+}
+
 
 
     return res.sendStatus(200);

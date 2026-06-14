@@ -433,7 +433,7 @@ return res.sendStatus(200);
 
                     chatId,
 
-`🎮 به ربات اقتصادی خوش آمدی
+`🎮 به ربات classiced خوش اومدی
 
 دستورات:
 

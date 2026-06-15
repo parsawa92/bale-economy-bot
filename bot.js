@@ -5,9 +5,9 @@ const app = express();
 app.use(express.json());
 
 // تنظیمات
-const TOKEN = TOKEN;
-const BIN_ID = BIN_ID;
-const MASTER_KEY = MASTER_KEY;
+const TOKEN = 1903477716:12tRWr3sE_lYh9KrX99xN54vkmzabfb-Kp4;
+const BIN_ID = 6a27afa8da38895dfe9e52c0;
+const MASTER_KEY = $2a$10$1kb5PXqeS7QM3WArBTrME.PD7r.1EcMFKcqL0DXXLqSzdwoVsiE7W;
 
 const API = `https://tapi.bale.ai/bot${TOKEN}`;
 

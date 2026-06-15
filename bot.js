@@ -2,7 +2,6 @@ const express = require("express");
 const axios = require("axios");
 
 const app = express();
-
 app.use(express.json());
 
 // تنظیمات
@@ -17,7 +16,6 @@ const API = `https://tapi.bale.ai/bot${TOKEN}`;
 // =======================
 
 async function loadDB() {
-
     const res = await axios.get(
         `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,
         {
@@ -26,12 +24,10 @@ async function loadDB() {
             }
         }
     );
-
     return res.data.record;
 }
 
 async function saveDB(db) {
-
     await axios.put(
         `https://api.jsonbin.io/v3/b/${BIN_ID}`,
         db,
@@ -45,24 +41,19 @@ async function saveDB(db) {
 }
 
 async function getUser(userId) {
-
     const db = await loadDB();
 
     if (!db.users[userId]) {
-
         db.users[userId] = {
-
             money: 1000,
             level: 1,
             xp: 0,
-
             bank: 0,
             items: [],
-
-            lastWork: 0
-
+            lastWork: 0,
+            tradeActive: false,
+            tradeAmount: 0
         };
-
         await saveDB(db);
     }
 
@@ -70,11 +61,8 @@ async function getUser(userId) {
 }
 
 async function updateUser(userId, userData) {
-
     const db = await loadDB();
-
     db.users[userId] = userData;
-
     await saveDB(db);
 }
 
@@ -82,13 +70,8 @@ async function updateUser(userId, userData) {
 // ارسال پیام
 // =======================
 
-async function sendMessage(
-    chatId,
-    text
-) {
-
+async function sendMessage(chatId, text) {
     try {
-
         await axios.post(
             `${API}/sendMessage`,
             {
@@ -96,16 +79,26 @@ async function sendMessage(
                 text
             }
         );
-
     } catch (err) {
-
-        console.log(
-            "SEND ERROR:",
-            err.message
-        );
-
+        console.log("SEND ERROR:", err.message);
     }
+}
 
+async function sendKeyboard(chatId, text, keyboard) {
+    try {
+        await axios.post(
+            `${API}/sendMessage`,
+            {
+                chat_id: chatId,
+                text,
+                reply_markup: {
+                    inline_keyboard: keyboard
+                }
+            }
+        );
+    } catch (err) {
+        console.log("KEYBOARD ERROR:", err.message);
+    }
 }
 
 // =======================
@@ -113,487 +106,446 @@ async function sendMessage(
 // =======================
 
 app.get("/", (req, res) => {
-
     res.send("BOT ONLINE");
-
 });
 
 // =======================
 // WEBHOOK
 // =======================
 
-app.post(
-    "/webhook",
-    async (req, res) => {
-
-        try {
-
-            const update =
-                req.body;
-
-if (update.callback_query) {
-
-    const chatId =
-        update.callback_query.message.chat.id;
-
-    const userId =
-        update.callback_query.from.id;
-
-    const data =
-        update.callback_query.data;
-
-    const user =
-        await getUser(userId);
-
-
-if (
-    data === "meli"
-) {
-
-    return sendKeyboard(
-
-        chatId,
-
-`🏛 بانک ملی
-
-هزینه افتتاح:
-500 سکه
-
-سود:
-3٪ روزانه`,
-
-        [
-
-            [
-                {
-                    text: "✅ افتتاح حساب",
-                    callback_data: "buy_meli"
-                }
-            ]
-
-        ]
-
-    );
-
-}
-
-
-
-    // پروفایل
-
-    if (data === "profile") {
-
-        await sendMessage(
-
-            chatId,
-
-`👤 پروفایل
-
-💰 پول:
-${user.money}
-
-🏦 بانک:
-${user.bank}
-
-⭐ سطح:
-${user.level}`
-        );
-
-    }
-
-    // بانک
-
-    else if (
-        data === "bank"
-    ) {
-
-        await sendMessage(
-
-            chatId,
-
-`🏦 بانک
-
-موجودی:
-${user.bank}`
-        );
-
-    }
-
-    // فروشگاه
-
-    else if (data === "buy_suit") {
-
-    const price = 5000;
-
-    if (user.money < price) {
-
-        return sendMessage(
-            chatId,
-            "❌ پول کافی نداری"
-        );
-
-    }
-
-    user.money -= price;
-
-    user.items.push(
-        "👔 کت و شلوار"
-    );
-
-    await updateUser(
-        userId,
-        user
-    );
-
-    return sendMessage(
-        chatId,
-        "✅ کت و شلوار خریدی"
-    );
-
-}
-
-else if (data === "buy_watch") {
-
-    const price = 10000;
-
-    if (user.money < price) {
-
-        return sendMessage(
-            chatId,
-            "❌ پول کافی نداری"
-        );
-
-    }
-
-    user.money -= price;
-
-    user.items.push(
-        "⌚ ساعت لوکس"
-    );
-
-    await updateUser(
-        userId,
-        user
-    );
-
-    return sendMessage(
-        chatId,
-        "⌚ ساعت خریدی"
-    );
-
-}
-
-else if (data === "buy_car") {
-
-    const price = 50000;
-
-    if (user.money < price) {
-
-        return sendMessage(
-            chatId,
-            "❌ پول کافی نداری"
-        );
-
-    }
-
-    user.money -= price;
-
-    user.items.push(
-        "🚗 ماشین اسپرت"
-    );
-
-    await updateUser(
-        userId,
-        user
-    );
-
-    return sendMessage(
-        chatId,
-        "🚗 ماشین خریدی"
-    );
-
-}
-
-if (
-    text === "بانک"
-) {
-
-    return sendKeyboard(
-
-        chatId,
-
-        "🏦 پنل بانک",
-
-        [
-
-            [
-                {
-                    text: "🏛 بانک ملی",
-                    callback_data: "meli"
-                }
-            ],
-
-            [
-                {
-                    text: "🏛 بانک سپه",
-                    callback_data: "sepah"
-                }
-            ]
-
-        ]
-
-    );
-
-}
-
-
-
-    return res.sendStatus(200);
-
-}
-
-
-            if (
-                !update.message
-            ) {
-
-                return res.sendStatus(
-                    200
-                );
-
-            }
-
-            const chatId =
-                update.message.chat.id;
-
-            const userId =
-                update.message.from.id;
-
-            const text =
-                update.message.text || "";
-
-            let user =
-                await getUser(
-                    userId
-                );
-
-await sendKeyboard(
-
-    chatId,
-
-    "🎮 پنل اقتصادی",
-
-    [
-
-        [
-            {
-                text: "👤 پروفایل",
-                callback_data: "profile"
-            }
-        ],
-
-        [
-            {
-                text: "💼 کار",
-                callback_data: "work"
-            },
-
-            {
-                text: "🎁 روزانه",
-                callback_data: "daily"
-            }
-        ],
-
-        [
-            {
-                text: "🏦 بانک",
-                callback_data: "bank"
-            },
-
-            {
-                text: "📈 ترید",
-                callback_data: "trade"
-            }
-        ],
-
-        [
-            {
-                text: "🛒 فروشگاه",
-                callback_data: "shop"
-            }
-        ]
-
-    ]
-
-);
-
-return res.sendStatus(200);
-
-                await sendMessage(
-
-                    chatId,
-
-`🎮 به ربات classiced خوش اومدی
-
-دستورات:
-
-
-/پروفایل
-/کار`
-                );
-async function sendKeyboard(
-    chatId,
-    text,
-    keyboard
-) {
-
-    await axios.post(
-        `${API}/sendMessage`,
-        {
-            chat_id: chatId,
-            text,
-
-            reply_markup: {
-                inline_keyboard: keyboard
-            }
-        }
-    );
-
-}
-
-
-                return res.sendStatus(
-                    200
-                );
-
-            }
+app.post("/webhook", async (req, res) => {
+    try {
+        const update = req.body;
+
+        // callback_query (دکمه‌ها)
+        if (update.callback_query) {
+            const chatId = update.callback_query.message.chat.id;
+            const userId = update.callback_query.from.id;
+            const data = update.callback_query.data;
+            const user = await getUser(userId);
 
             // پروفایل
-
-            if (
-                text === "/پروفایل"
-            ) {
-
+            if (data === "profile") {
                 await sendMessage(
-
                     chatId,
+                    `👤 پروفایل
 
-`👤 پروفایل
-
-💰 پول:
-${user.money}
-
-🏦 بانک:
-${user.bank}
-
-⭐ سطح:
-${user.level}
-
-⚡ XP:
-${user.xp}`
+💰 پول: ${user.money}
+🏦 بانک: ${user.bank}
+⭐ سطح: ${user.level}
+⚡ XP: ${user.xp}`
                 );
+            }
 
-                return res.sendStatus(
-                    200
+            // بانک
+            else if (data === "bank") {
+                await sendKeyboard(
+                    chatId,
+                    `🏦 پنل بانک
+
+موجودی: ${user.bank}`,
+                    [
+                        [
+                            {
+                                text: "🏛 بانک ملی",
+                                callback_data: "meli"
+                            }
+                        ]
+                    ]
                 );
+            }
 
+            // بانک ملی
+            else if (data === "meli") {
+                await sendMessage(
+                    chatId,
+                    `🏛 بانک ملی
+
+هزینه افتتاح: 500 سکه
+سود: 3٪ روزانه`
+                );
+            }
+
+            // ترید
+            else if (data === "trade") {
+                await sendMessage(
+                    chatId,
+                    `📈 ترید
+
+برای شروع ترید بنویس:
+/ترید [مقدار]
+
+مثال: /ترید 1000`
+                );
             }
 
             // کار
+            else if (data === "work") {
+                const now = Date.now();
 
-            if (
-                text === "/کار"
-            ) {
-
-                const now =
-                    Date.now();
-
-                if (
-                    now -
-                    user.lastWork <
-                    60000
-                ) {
-
-                    await sendMessage(
-
-                        chatId,
-
-                        "⏳ یک دقیقه صبر کن"
-                    );
-
-                    return res.sendStatus(
-                        200
-                    );
-
+                if (now - user.lastWork < 60000) {
+                    await sendMessage(chatId, "⏳ یک دقیقه صبر کن");
+                    return res.sendStatus(200);
                 }
 
-                const income =
-                    Math.floor(
-                        Math.random() *
-                        500
-                    ) + 100;
-
-                user.money +=
-                    income;
-
+                const income = Math.floor(Math.random() * 500) + 100;
+                user.money += income;
                 user.xp += 10;
+                user.lastWork = now;
 
-                user.lastWork =
-                    now;
-
-                await updateUser(
-                    userId,
-                    user
-                );
+                await updateUser(userId, user);
 
                 await sendMessage(
-
                     chatId,
+                    `💼 کار کردی
 
-`💼 کار کردی
-
-💵 درآمد:
-${income}
-
-💰 موجودی:
-${user.money}`
+💵 درآمد: ${income}
+💰 موجودی: ${user.money}`
                 );
-
-                return res.sendStatus(
-                    200
-                );
-
             }
 
-            return res.sendStatus(
-                200
-            );
+            // روزانه
+            else if (data === "daily") {
+                const daily = 500;
+                user.money += daily;
+                await updateUser(userId, user);
 
-        } catch (err) {
+                await sendMessage(
+                    chatId,
+                    `🎁 پاداش روزانه
 
-            console.log(err);
+💰 ${daily} سکه دریافت کردی
+💸 موجودی: ${user.money}`
+                );
+            }
 
-            return res.sendStatus(
-                500
-            );
+            // فروشگاه
+            else if (data === "shop") {
+                await sendKeyboard(
+                    chatId,
+                    "🛒 فروشگاه",
+                    [
+                        [
+                            {
+                                text: "👔 کت و شلوار (5000)",
+                                callback_data: "buy_suit"
+                            }
+                        ],
+                        [
+                            {
+                                text: "⌚ ساعت لوکس (10000)",
+                                callback_data: "buy_watch"
+                            }
+                        ],
+                        [
+                            {
+                                text: "🚗 ماشین اسپرت (50000)",
+                                callback_data: "buy_car"
+                            }
+                        ]
+                    ]
+                );
+            }
 
+            // خرید کت و شلوار
+            else if (data === "buy_suit") {
+                const price = 5000;
+                if (user.money < price) {
+                    return await sendMessage(chatId, "❌ پول کافی نداری");
+                }
+                user.money -= price;
+                user.items.push("👔 کت و شلوار");
+                await updateUser(userId, user);
+                await sendMessage(chatId, "✅ کت و شلوار خریدی");
+            }
+
+            // خرید ساعت
+            else if (data === "buy_watch") {
+                const price = 10000;
+                if (user.money < price) {
+                    return await sendMessage(chatId, "❌ پول کافی نداری");
+                }
+                user.money -= price;
+                user.items.push("⌚ ساعت لوکس");
+                await updateUser(userId, user);
+                await sendMessage(chatId, "⌚ ساعت خریدی");
+            }
+
+            // خرید ماشین
+            else if (data === "buy_car") {
+                const price = 50000;
+                if (user.money < price) {
+                    return await sendMessage(chatId, "❌ پول کافی نداری");
+                }
+                user.money -= price;
+                user.items.push("🚗 ماشین اسپرت");
+                await updateUser(userId, user);
+                await sendMessage(chatId, "🚗 ماشین خریدی");
+            }
+
+            return res.sendStatus(200);
         }
 
+        // متن معمولی (دستورات)
+        if (!update.message) {
+            return res.sendStatus(200);
+        }
+
+        const chatId = update.message.chat.id;
+        const userId = update.message.from.id;
+        const text = update.message.text || "";
+
+        let user = await getUser(userId);
+
+        // /پروفایل
+        if (text === "/پروفایل") {
+            await sendMessage(
+                chatId,
+                `👤 پروفایل
+
+💰 پول: ${user.money}
+🏦 بانک: ${user.bank}
+⭐ سطح: ${user.level}
+⚡ XP: ${user.xp}`
+            );
+            return res.sendStatus(200);
+        }
+
+        // /کار
+        if (text === "/کار") {
+            const now = Date.now();
+
+            if (now - user.lastWork < 60000) {
+                await sendMessage(chatId, "⏳ یک دقیقه صبر کن");
+                return res.sendStatus(200);
+            }
+
+            const income = Math.floor(Math.random() * 500) + 100;
+            user.money += income;
+            user.xp += 10;
+            user.lastWork = now;
+
+            await updateUser(userId, user);
+
+            await sendMessage(
+                chatId,
+                `💼 کار کردی
+
+💵 درآمد: ${income}
+💰 موجودی: ${user.money}`
+            );
+            return res.sendStatus(200);
+        }
+
+        // /بانک
+        if (text === "/بانک") {
+            await sendMessage(
+                chatId,
+                `🏦 بانک
+
+موجودی: ${user.bank}`
+            );
+            return res.sendStatus(200);
+        }
+
+        // /واریز [مقدار]
+        if (text.startsWith("/واریز")) {
+            const parts = text.split(" ");
+            const amount = parseInt(parts[1]);
+
+            if (!amount || amount <= 0) {
+                await sendMessage(chatId, "❌ مقدار معتبر نیست\n\nمثال: /واریز 100");
+                return res.sendStatus(200);
+            }
+
+            if (user.money < amount) {
+                await sendMessage(chatId, "❌ پول کافی نداری");
+                return res.sendStatus(200);
+            }
+
+            user.money -= amount;
+            user.bank += amount;
+
+            await updateUser(userId, user);
+
+            await sendMessage(
+                chatId,
+                `✅ واریز شد
+
+💵 مقدار: ${amount}
+💰 پول: ${user.money}
+🏦 بانک: ${user.bank}`
+            );
+            return res.sendStatus(200);
+        }
+
+        // /برداشت [مقدار]
+        if (text.startsWith("/برداشت")) {
+            const parts = text.split(" ");
+            const amount = parseInt(parts[1]);
+
+            if (!amount || amount <= 0) {
+                await sendMessage(chatId, "❌ مقدار معتبر نیست\n\nمثال: /برداشت 100");
+                return res.sendStatus(200);
+            }
+
+            if (user.bank < amount) {
+                await sendMessage(chatId, "❌ موجودی بانک کافی نیست");
+                return res.sendStatus(200);
+            }
+
+            user.bank -= amount;
+            user.money += amount;
+
+            await updateUser(userId, user);
+
+            await sendMessage(
+                chatId,
+                `✅ برداشت شد
+
+💵 مقدار: ${amount}
+💰 پول: ${user.money}
+🏦 بانک: ${user.bank}`
+            );
+            return res.sendStatus(200);
+        }
+
+        // /خرید تریدر
+        if (text === "/خرید تریدر") {
+            const price = 10000;
+
+            if (user.money < price) {
+                await sendMessage(chatId, "❌ پول کافی نداری\n\n💰 نیاز: 10000");
+                return res.sendStatus(200);
+            }
+
+            user.money -= price;
+            user.items.push("🤖 تریدر");
+            user.tradeActive = true;
+
+            await updateUser(userId, user);
+
+            await sendMessage(
+                chatId,
+                `✅ تریدر خریدی
+
+🤖 تریدر فعال شد
+📈 حالا میتونی ترید کنی: /ترید [مقدار]`
+            );
+            return res.sendStatus(200);
+        }
+
+        // /ترید [مقدار]
+        if (text.startsWith("/ترید")) {
+            if (!user.tradeActive) {
+                await sendMessage(
+                    chatId,
+                    `❌ تریدر فعال نیست
+
+برای خرید تریدر بنویس:
+/خرید تریدر (10000 سکه)`
+                );
+                return res.sendStatus(200);
+            }
+
+            const parts = text.split(" ");
+            const amount = parseInt(parts[1]);
+
+            if (!amount || amount <= 0) {
+                await sendMessage(chatId, "❌ مقدار معتبر نیست\n\nمثال: /ترید 1000");
+                return res.sendStatus(200);
+            }
+
+            if (user.money < amount) {
+                await sendMessage(chatId, "❌ پول کافی نداری");
+                return res.sendStatus(200);
+            }
+
+            // 50% شانس برد/باخت
+            const isWin = Math.random() > 0.5;
+            const profit = Math.floor(amount * 0.5); // 50% سود/زیان
+
+            if (isWin) {
+                user.money += profit;
+                await updateUser(userId, user);
+
+                await sendMessage(
+                    chatId,
+                    `✅ ترید برنده
+
+📈 سود: +${profit}
+💰 موجودی: ${user.money}`
+                );
+            } else {
+                user.money -= profit;
+                await updateUser(userId, user);
+
+                await sendMessage(
+                    chatId,
+                    `❌ ترید باخت
+
+📉 زیان: -${profit}
+💰 موجودی: ${user.money}`
+                );
+            }
+
+            return res.sendStatus(200);
+        }
+
+        // منو اصلی
+        await sendKeyboard(
+            chatId,
+            "🎮 پنل اقتصادی",
+            [
+                [
+                    {
+                        text: "👤 پروفایل",
+                        callback_data: "profile"
+                    }
+                ],
+                [
+                    {
+                        text: "💼 کار",
+                        callback_data: "work"
+                    },
+                    {
+                        text: "🎁 روزانه",
+                        callback_data: "daily"
+                    }
+                ],
+                [
+                    {
+                        text: "🏦 بانک",
+                        callback_data: "bank"
+                    },
+                    {
+                        text: "📈 ترید",
+                        callback_data: "trade"
+                    }
+                ],
+                [
+                    {
+                        text: "🛒 فروشگاه",
+                        callback_data: "shop"
+                    }
+                ]
+            ]
+        );
+
+        return res.sendStatus(200);
+
+    } catch (err) {
+        console.log(err);
+        return res.sendStatus(500);
     }
-);
+});
 
 // =======================
 // START
 // =======================
 
-const PORT =
-    process.env.PORT ||
-    3000;
+const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-
-    console.log(
-        `BOT ONLINE ${PORT}`
-    );
-
+    console.log(`BOT ONLINE ${PORT}`);
 });

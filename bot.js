@@ -81,6 +81,8 @@ function withDBLock(fn) {
 }
 
 async function getUser(userId) {
+console.log("DB USERS =", Object.keys(db.users));
+
     const uid = String(userId);
     return await withDBLock(async () => {
         const db = await loadDB();

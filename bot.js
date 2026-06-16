@@ -116,24 +116,11 @@ async function sendKeyboard(chatId, text, keyboard) {
 }
 
 // =======================
-// صفحه اصلی
+// معالجه پیام‌ها
 // =======================
 
-app.get("/", (req, res) => {
-    res.send("BOT ONLINE");
-});
-
-// =======================
-// WEBHOOK
-// =======================
-
-app.post("/webhook", async (req, res) => {
-    res.sendStatus(200); // فوری جواب بده
-    
+async function handleMessage(update) {
     try {
-        const update = req.body;
-        console.log("UPDATE:", JSON.stringify(update, null, 2)); // لاگ کن
-
         // callback_query (دکمه‌ها)
         if (update.callback_query) {
             const chatId = update.callback_query.message.chat.id;
@@ -596,9 +583,55 @@ app.post("/webhook", async (req, res) => {
         );
 
     } catch (err) {
-        console.log("WEBHOOK ERROR:", err);
+        console.log("MESSAGE ERROR:", err);
     }
+}
+
+// =======================
+// صفحه اصلی
+// =======================
+
+app.get("/", (req, res) => {
+    res.send("BOT ONLINE - Using Polling Mode");
 });
+
+// =======================
+// WEBHOOK (برای سازگاری)
+// =======================
+
+app.post("/webhook", async (req, res) => {
+    res.sendStatus(200);
+    await handleMessage(req.body);
+});
+
+// =======================
+// POLLING - دریافت پیام‌ها
+// =======================
+
+let offset = 0;
+
+async function pollUpdates() {
+    try {
+        const response = await axios.get(`${API}/getUpdates`, {
+            params: {
+                offset: offset,
+                timeout: 30
+            }
+        });
+
+        const updates = response.data.result || [];
+
+        for (const update of updates) {
+            offset = update.update_id + 1;
+            await handleMessage(update);
+        }
+    } catch (err) {
+        console.log("POLL ERROR:", err.message);
+    }
+
+    // ادامه polling
+    setTimeout(pollUpdates, 1000);
+}
 
 // =======================
 // START
@@ -607,5 +640,7 @@ app.post("/webhook", async (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-    console.log(`BOT ONLINE ${PORT}`);
+    console.log(`BOT ONLINE on port ${PORT} - Polling Mode Active`);
+    // شروع polling
+    pollUpdates();
 });

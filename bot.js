@@ -1,3 +1,10 @@
+const response = await axios.get(`${API}/getUpdates`);
+const updates = response.data.result || [];
+
+if (updates.length) {
+  offset = updates[updates.length - 1].update_id + 1;
+}
+
 const express = require("express");
 const axios = require("axios");
 

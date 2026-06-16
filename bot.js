@@ -16,28 +16,42 @@ const API = `https://tapi.bale.ai/bot${TOKEN}`;
 // =======================
 
 async function loadDB() {
-    const res = await axios.get(
-        `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,
-        {
-            headers: {
-                "X-Master-Key": MASTER_KEY
+    try {
+        const res = await axios.get(
+            `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,
+            {
+                headers: {
+                    "X-Master-Key": MASTER_KEY
+                }
             }
+        );
+        const data = res.data.record;
+        // اگر users نیست، خالی ایجاد کن
+        if (!data.users) {
+            data.users = {};
         }
-    );
-    return res.data.record;
+        return data;
+    } catch (err) {
+        console.log("loadDB ERROR:", err.message);
+        return { users: {} };
+    }
 }
 
 async function saveDB(db) {
-    await axios.put(
-        `https://api.jsonbin.io/v3/b/${BIN_ID}`,
-        db,
-        {
-            headers: {
-                "X-Master-Key": MASTER_KEY,
-                "Content-Type": "application/json"
+    try {
+        await axios.put(
+            `https://api.jsonbin.io/v3/b/${BIN_ID}`,
+            db,
+            {
+                headers: {
+                    "X-Master-Key": MASTER_KEY,
+                    "Content-Type": "application/json"
+                }
             }
-        }
-    );
+        );
+    } catch (err) {
+        console.log("saveDB ERROR:", err.message);
+    }
 }
 
 async function getUser(userId) {
@@ -114,8 +128,11 @@ app.get("/", (req, res) => {
 // =======================
 
 app.post("/webhook", async (req, res) => {
+    res.sendStatus(200); // فوری جواب بده
+    
     try {
         const update = req.body;
+        console.log("UPDATE:", JSON.stringify(update, null, 2)); // لاگ کن
 
         // callback_query (دکمه‌ها)
         if (update.callback_query) {
@@ -185,7 +202,7 @@ app.post("/webhook", async (req, res) => {
 
                 if (now - user.lastWork < 60000) {
                     await sendMessage(chatId, "⏳ یک دقیقه صبر کن");
-                    return res.sendStatus(200);
+                    return;
                 }
 
                 const income = Math.floor(Math.random() * 500) + 100;
@@ -251,7 +268,8 @@ app.post("/webhook", async (req, res) => {
             else if (data === "buy_suit") {
                 const price = 5000;
                 if (user.money < price) {
-                    return await sendMessage(chatId, "❌ پول کافی نداری");
+                    await sendMessage(chatId, "❌ پول کافی نداری");
+                    return;
                 }
                 user.money -= price;
                 user.items.push("👔 کت و شلوار");
@@ -263,7 +281,8 @@ app.post("/webhook", async (req, res) => {
             else if (data === "buy_watch") {
                 const price = 10000;
                 if (user.money < price) {
-                    return await sendMessage(chatId, "❌ پول کافی نداری");
+                    await sendMessage(chatId, "❌ پول کافی نداری");
+                    return;
                 }
                 user.money -= price;
                 user.items.push("⌚ ساعت لوکس");
@@ -275,7 +294,8 @@ app.post("/webhook", async (req, res) => {
             else if (data === "buy_car") {
                 const price = 50000;
                 if (user.money < price) {
-                    return await sendMessage(chatId, "❌ پول کافی نداری");
+                    await sendMessage(chatId, "❌ پول کافی نداری");
+                    return;
                 }
                 user.money -= price;
                 user.items.push("🚗 ماشین اسپرت");
@@ -283,12 +303,12 @@ app.post("/webhook", async (req, res) => {
                 await sendMessage(chatId, "🚗 ماشین خریدی");
             }
 
-            return res.sendStatus(200);
+            return;
         }
 
         // متن معمولی (دستورات)
         if (!update.message) {
-            return res.sendStatus(200);
+            return;
         }
 
         const chatId = update.message.chat.id;
@@ -296,6 +316,49 @@ app.post("/webhook", async (req, res) => {
         const text = update.message.text || "";
 
         let user = await getUser(userId);
+
+        // /start
+        if (text === "/start") {
+            await sendKeyboard(
+                chatId,
+                "🎮 خوش آمدید به بات اقتصادی! 🎮",
+                [
+                    [
+                        {
+                            text: "👤 پروفایل",
+                            callback_data: "profile"
+                        }
+                    ],
+                    [
+                        {
+                            text: "💼 کار",
+                            callback_data: "work"
+                        },
+                        {
+                            text: "🎁 روزانه",
+                            callback_data: "daily"
+                        }
+                    ],
+                    [
+                        {
+                            text: "🏦 بانک",
+                            callback_data: "bank"
+                        },
+                        {
+                            text: "📈 ترید",
+                            callback_data: "trade"
+                        }
+                    ],
+                    [
+                        {
+                            text: "🛒 فروشگاه",
+                            callback_data: "shop"
+                        }
+                    ]
+                ]
+            );
+            return;
+        }
 
         // /پروفایل
         if (text === "/پروفایل") {
@@ -308,7 +371,7 @@ app.post("/webhook", async (req, res) => {
 ⭐ سطح: ${user.level}
 ⚡ XP: ${user.xp}`
             );
-            return res.sendStatus(200);
+            return;
         }
 
         // /کار
@@ -317,7 +380,7 @@ app.post("/webhook", async (req, res) => {
 
             if (now - user.lastWork < 60000) {
                 await sendMessage(chatId, "⏳ یک دقیقه صبر کن");
-                return res.sendStatus(200);
+                return;
             }
 
             const income = Math.floor(Math.random() * 500) + 100;
@@ -334,7 +397,7 @@ app.post("/webhook", async (req, res) => {
 💵 درآمد: ${income}
 💰 موجودی: ${user.money}`
             );
-            return res.sendStatus(200);
+            return;
         }
 
         // /بانک
@@ -345,7 +408,7 @@ app.post("/webhook", async (req, res) => {
 
 موجودی: ${user.bank}`
             );
-            return res.sendStatus(200);
+            return;
         }
 
         // /واریز [مقدار]
@@ -355,12 +418,12 @@ app.post("/webhook", async (req, res) => {
 
             if (!amount || amount <= 0) {
                 await sendMessage(chatId, "❌ مقدار معتبر نیست\n\nمثال: /واریز 100");
-                return res.sendStatus(200);
+                return;
             }
 
             if (user.money < amount) {
                 await sendMessage(chatId, "❌ پول کافی نداری");
-                return res.sendStatus(200);
+                return;
             }
 
             user.money -= amount;
@@ -376,7 +439,7 @@ app.post("/webhook", async (req, res) => {
 💰 پول: ${user.money}
 🏦 بانک: ${user.bank}`
             );
-            return res.sendStatus(200);
+            return;
         }
 
         // /برداشت [مقدار]
@@ -386,12 +449,12 @@ app.post("/webhook", async (req, res) => {
 
             if (!amount || amount <= 0) {
                 await sendMessage(chatId, "❌ مقدار معتبر نیست\n\nمثال: /برداشت 100");
-                return res.sendStatus(200);
+                return;
             }
 
             if (user.bank < amount) {
                 await sendMessage(chatId, "❌ موجودی بانک کافی نیست");
-                return res.sendStatus(200);
+                return;
             }
 
             user.bank -= amount;
@@ -407,7 +470,7 @@ app.post("/webhook", async (req, res) => {
 💰 پول: ${user.money}
 🏦 بانک: ${user.bank}`
             );
-            return res.sendStatus(200);
+            return;
         }
 
         // /خرید تریدر
@@ -416,7 +479,7 @@ app.post("/webhook", async (req, res) => {
 
             if (user.money < price) {
                 await sendMessage(chatId, "❌ پول کافی نداری\n\n💰 نیاز: 10000");
-                return res.sendStatus(200);
+                return;
             }
 
             user.money -= price;
@@ -432,7 +495,7 @@ app.post("/webhook", async (req, res) => {
 🤖 تریدر فعال شد
 📈 حالا میتونی ترید کنی: /ترید [مقدار]`
             );
-            return res.sendStatus(200);
+            return;
         }
 
         // /ترید [مقدار]
@@ -445,7 +508,7 @@ app.post("/webhook", async (req, res) => {
 برای خرید تریدر بنویس:
 /خرید تریدر (10000 سکه)`
                 );
-                return res.sendStatus(200);
+                return;
             }
 
             const parts = text.split(" ");
@@ -453,12 +516,12 @@ app.post("/webhook", async (req, res) => {
 
             if (!amount || amount <= 0) {
                 await sendMessage(chatId, "❌ مقدار معتبر نیست\n\nمثال: /ترید 1000");
-                return res.sendStatus(200);
+                return;
             }
 
             if (user.money < amount) {
                 await sendMessage(chatId, "❌ پول کافی نداری");
-                return res.sendStatus(200);
+                return;
             }
 
             // 50% شانس برد/باخت
@@ -489,7 +552,7 @@ app.post("/webhook", async (req, res) => {
                 );
             }
 
-            return res.sendStatus(200);
+            return;
         }
 
         // منو اصلی
@@ -532,11 +595,8 @@ app.post("/webhook", async (req, res) => {
             ]
         );
 
-        return res.sendStatus(200);
-
     } catch (err) {
-        console.log(err);
-        return res.sendStatus(500);
+        console.log("WEBHOOK ERROR:", err);
     }
 });
 

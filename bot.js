@@ -20,8 +20,7 @@ const API = `https://tapi.bale.ai/bot${TOKEN}`;
 
 // =======================
 // JSONBIN
-// =======================
-
+// =====================
 async function loadDB() {
     try {
         const res = await axios.get(
@@ -32,21 +31,25 @@ async function loadDB() {
                 }
             }
         );
+
         const data = res.data.record || {};
-        if (!data.users) data.users = {};
+
+        if (!data.users) {
+            data.users = {};
+        }
+
         return data;
+
     } catch (err) {
-        console.log("loadDB ERROR:", err.message);
+        console.log("loadDB ERROR:", err.response?.data || err.message);
         return { users: {} };
     }
 }
-
 async function saveDB(db) {
     try {
-        // JSONBin v3 expects { record: ... } for update so loadDB can read res.data.record
         await axios.put(
             `https://api.jsonbin.io/v3/b/${BIN_ID}`,
-            { record: db },
+            db,
             {
                 headers: {
                     "X-Master-Key": MASTER_KEY,
@@ -54,10 +57,18 @@ async function saveDB(db) {
                 }
             }
         );
+
+        console.log("DB SAVED");
+
     } catch (err) {
-        console.log("saveDB ERROR:", err.message);
+        console.log(
+            "saveDB ERROR:",
+            err.response?.data || err.message
+        );
     }
 }
+
+      
 
 // Simple DB lock to serialize read-modify-write operations
 let dbLock = Promise.resolve();
@@ -94,13 +105,22 @@ async function getUser(userId) {
 
 async function updateUser(userId, userData) {
     const uid = String(userId);
+
     return await withDBLock(async () => {
         const db = await loadDB();
-        if (!db.users) db.users = {};
+
+        if (!db.users) {
+            db.users = {};
+        }
+
         db.users[uid] = userData;
+
+        console.log("UPDATING USER:", uid);
+
         await saveDB(db);
     });
 }
+
 
 // =======================
 // ارسال پیام

@@ -25,11 +25,8 @@ async function loadDB() {
                 }
             }
         );
-        const data = res.data.record;
-        // اگر users نیست، خالی ایجاد کن
-        if (!data.users) {
-            data.users = {};
-        }
+        const data = res.data.record || {};
+        if (!data.users) data.users = {};
         return data;
     } catch (err) {
         console.log("loadDB ERROR:", err.message);
@@ -39,9 +36,10 @@ async function loadDB() {
 
 async function saveDB(db) {
     try {
+        // JSONBin v3 expects { record: ... } for update so loadDB can read res.data.record
         await axios.put(
             `https://api.jsonbin.io/v3/b/${BIN_ID}`,
-            db,
+            { record: db },
             {
                 headers: {
                     "X-Master-Key": MASTER_KEY,
@@ -54,30 +52,47 @@ async function saveDB(db) {
     }
 }
 
+// Simple DB lock to serialize read-modify-write operations
+let dbLock = Promise.resolve();
+function withDBLock(fn) {
+    // chain operations so they run sequentially
+    dbLock = dbLock.then(() => fn()).catch(err => {
+        console.log("DB LOCK ERROR:", err && err.message);
+    });
+    return dbLock;
+}
+
 async function getUser(userId) {
-    const db = await loadDB();
-
-    if (!db.users[userId]) {
-        db.users[userId] = {
-            money: 1000,
-            level: 1,
-            xp: 0,
-            bank: 0,
-            items: [],
-            lastWork: 0,
-            tradeActive: false,
-            tradeAmount: 0
-        };
-        await saveDB(db);
-    }
-
-    return db.users[userId];
+    const uid = String(userId);
+    return await withDBLock(async () => {
+        const db = await loadDB();
+        if (!db.users) db.users = {};
+        if (!db.users[uid]) {
+            db.users[uid] = {
+                money: 1000,
+                level: 1,
+                xp: 0,
+                bank: 0,
+                items: [],
+                lastWork: 0,
+                lastDaily: 0,
+                tradeActive: false,
+                tradeAmount: 0
+            };
+            await saveDB(db);
+        }
+        return db.users[uid];
+    });
 }
 
 async function updateUser(userId, userData) {
-    const db = await loadDB();
-    db.users[userId] = userData;
-    await saveDB(db);
+    const uid = String(userId);
+    return await withDBLock(async () => {
+        const db = await loadDB();
+        if (!db.users) db.users = {};
+        db.users[uid] = userData;
+        await saveDB(db);
+    });
 }
 
 // =======================
@@ -115,6 +130,15 @@ async function sendKeyboard(chatId, text, keyboard) {
     }
 }
 
+function fmtNumber(n) {
+    // اگر خواستی ارقام فارسی یا جداکننده هزار اضافه کن
+    try {
+        return Number(n).toLocaleString();
+    } catch {
+        return String(n);
+    }
+}
+
 // =======================
 // معالجه پیام‌ها
 // =======================
@@ -134,10 +158,10 @@ async function handleMessage(update) {
                     chatId,
                     `👤 پروفایل
 
-💰 پول: ${user.money}
-🏦 بانک: ${user.bank}
-⭐ سطح: ${user.level}
-⚡ XP: ${user.xp}`
+💰 پول: ${fmtNumber(user.money)}
+🏦 بانک: ${fmtNumber(user.bank)}
+⭐ سطح: ${fmtNumber(user.level)}
+⚡ XP: ${fmtNumber(user.xp)}`
                 );
             }
 
@@ -147,7 +171,7 @@ async function handleMessage(update) {
                     chatId,
                     `🏦 پنل بانک
 
-موجودی: ${user.bank}`,
+موجودی: ${fmtNumber(user.bank)}`,
                     [
                         [
                             {
@@ -203,23 +227,32 @@ async function handleMessage(update) {
                     chatId,
                     `💼 کار کردی
 
-💵 درآمد: ${income}
-💰 موجودی: ${user.money}`
+💵 درآمد: ${fmtNumber(income)}
+💰 موجودی: ${fmtNumber(user.money)}`
                 );
             }
 
-            // روزانه
+            // روزانه (با چک cooldown ساده)
             else if (data === "daily") {
-                const daily = 500;
-                user.money += daily;
+                const now = Date.now();
+                const DAY = 24 * 60 * 60 * 1000;
+                const dailyAmount = 500;
+
+                if (now - (user.lastDaily || 0) < DAY) {
+                    await sendMessage(chatId, "❌ پاداش روزانه قبلا گرفته شده. دوباره فردا تلاش کن.");
+                    return;
+                }
+
+                user.money += dailyAmount;
+                user.lastDaily = now;
                 await updateUser(userId, user);
 
                 await sendMessage(
                     chatId,
                     `🎁 پاداش روزانه
 
-💰 ${daily} سکه دریافت کردی
-💸 موجودی: ${user.money}`
+💰 ${fmtNumber(dailyAmount)} سکه دریافت کردی
+💸 موجودی: ${fmtNumber(user.money)}`
                 );
             }
 
@@ -353,10 +386,10 @@ async function handleMessage(update) {
                 chatId,
                 `👤 پروفایل
 
-💰 پول: ${user.money}
-🏦 بانک: ${user.bank}
-⭐ سطح: ${user.level}
-⚡ XP: ${user.xp}`
+💰 پول: ${fmtNumber(user.money)}
+🏦 بانک: ${fmtNumber(user.bank)}
+⭐ سطح: ${fmtNumber(user.level)}
+⚡ XP: ${fmtNumber(user.xp)}`
             );
             return;
         }
@@ -381,8 +414,8 @@ async function handleMessage(update) {
                 chatId,
                 `💼 کار کردی
 
-💵 درآمد: ${income}
-💰 موجودی: ${user.money}`
+💵 درآمد: ${fmtNumber(income)}
+💰 موجودی: ${fmtNumber(user.money)}`
             );
             return;
         }
@@ -393,7 +426,7 @@ async function handleMessage(update) {
                 chatId,
                 `🏦 بانک
 
-موجودی: ${user.bank}`
+موجودی: ${fmtNumber(user.bank)}`
             );
             return;
         }
@@ -401,9 +434,9 @@ async function handleMessage(update) {
         // /واریز [مقدار]
         if (text.startsWith("/واریز")) {
             const parts = text.split(" ");
-            const amount = parseInt(parts[1]);
+            const amount = parseInt(parts[1], 10);
 
-            if (!amount || amount <= 0) {
+            if (!Number.isInteger(amount) || amount <= 0) {
                 await sendMessage(chatId, "❌ مقدار معتبر نیست\n\nمثال: /واریز 100");
                 return;
             }
@@ -422,9 +455,9 @@ async function handleMessage(update) {
                 chatId,
                 `✅ واریز شد
 
-💵 مقدار: ${amount}
-💰 پول: ${user.money}
-🏦 بانک: ${user.bank}`
+💵 مقدار: ${fmtNumber(amount)}
+💰 پول: ${fmtNumber(user.money)}
+🏦 بانک: ${fmtNumber(user.bank)}`
             );
             return;
         }
@@ -432,9 +465,9 @@ async function handleMessage(update) {
         // /برداشت [مقدار]
         if (text.startsWith("/برداشت")) {
             const parts = text.split(" ");
-            const amount = parseInt(parts[1]);
+            const amount = parseInt(parts[1], 10);
 
-            if (!amount || amount <= 0) {
+            if (!Number.isInteger(amount) || amount <= 0) {
                 await sendMessage(chatId, "❌ مقدار معتبر نیست\n\nمثال: /برداشت 100");
                 return;
             }
@@ -453,9 +486,9 @@ async function handleMessage(update) {
                 chatId,
                 `✅ برداشت شد
 
-💵 مقدار: ${amount}
-💰 پول: ${user.money}
-🏦 بانک: ${user.bank}`
+💵 مقدار: ${fmtNumber(amount)}
+💰 پول: ${fmtNumber(user.money)}
+🏦 بانک: ${fmtNumber(user.bank)}`
             );
             return;
         }
@@ -499,9 +532,9 @@ async function handleMessage(update) {
             }
 
             const parts = text.split(" ");
-            const amount = parseInt(parts[1]);
+            const amount = parseInt(parts[1], 10);
 
-            if (!amount || amount <= 0) {
+            if (!Number.isInteger(amount) || amount <= 0) {
                 await sendMessage(chatId, "❌ مقدار معتبر نیست\n\nمثال: /ترید 1000");
                 return;
             }
@@ -523,8 +556,8 @@ async function handleMessage(update) {
                     chatId,
                     `✅ ترید برنده
 
-📈 سود: +${profit}
-💰 موجودی: ${user.money}`
+📈 سود: +${fmtNumber(profit)}
+💰 موجودی: ${fmtNumber(user.money)}`
                 );
             } else {
                 user.money -= profit;
@@ -534,8 +567,8 @@ async function handleMessage(update) {
                     chatId,
                     `❌ ترید باخت
 
-📉 زیان: -${profit}
-💰 موجودی: ${user.money}`
+📉 زیان: -${fmtNumber(profit)}
+💰 موجودی: ${fmtNumber(user.money)}`
                 );
             }
 
@@ -583,7 +616,7 @@ async function handleMessage(update) {
         );
 
     } catch (err) {
-        console.log("MESSAGE ERROR:", err);
+        console.log("MESSAGE ERROR:", err && err.message);
     }
 }
 

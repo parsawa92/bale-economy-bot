@@ -363,6 +363,8 @@ async function handleMessage(update) {
         const userId = update.message.from.id;
         const text = update.message.text || "";
 
+console.log("USER EXISTS:", !!db.users[uid]);
+
         let user = await getUser(userId);
 
         // /start
@@ -703,5 +705,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`BOT ONLINE on port ${PORT} - Polling Mode Active`);
     // شروع polling
-    pollUpdates();
 });

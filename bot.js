@@ -174,6 +174,7 @@ function fmtNumber(n) {
 // =======================
 
 async function handleMessage(update) {
+console.log("USER ID =", userId);
     try {
         // callback_query (دکمه‌ها)
         if (update.callback_query) {

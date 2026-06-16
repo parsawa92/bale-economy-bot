@@ -84,6 +84,7 @@ async function getUser(userId) {
     const uid = String(userId);
     return await withDBLock(async () => {
         const db = await loadDB();
+console.log("USER EXISTS:", !!db.users[uid]);
         if (!db.users) db.users = {};
         if (!db.users[uid]) {
             db.users[uid] = {

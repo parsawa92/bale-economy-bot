@@ -31,7 +31,7 @@ const axios = require("axios");
 // تنظیمات اصلی - این متغیرها را با اطلاعات خود پر کنید
 // ================================================
 
-const BOT_TOKEN = "1778966348:yGTi5AdToRng5Ckf1OlVfTPFBREMn8Ewj_U"; 
+const BOT_TOKEN = "1903477716:12tRWr3sE_lYh9KrX99xN54vkmzabfb-Kp4"; 
 // توکن ربات بله
 
 const JSONBIN_API_KEY = "$2a$10$1kb5PXqeS7QM3WArBTrME.PD7r.1EcMFKcqL0DXXLqSzdwoVsiE7W"; 
